@@ -4,6 +4,13 @@ const { buildSchema } = require('graphql');
 
 // Construct a schema, using SraphQL schema language
 const schema = buildSchema(`
+
+    input ProductInput {
+        name : String
+        price: Int
+        description: String
+    }
+
     type Product {
         id: ID!
         name: String
@@ -12,10 +19,18 @@ const schema = buildSchema(`
     }
 
     type Query {
-        getProduct ( id: ID! ): Product
+        getProduct ( id: ID! ): Product 
     }
+
+    type Mutation {
+        addProduct ( input : ProductInput ) : Product
+        updateProduct ( id : ID! , input : ProductInput! ) : Product
+        deleteProduct ( id : ID! ) : String
+    }
+
 `);
 
+// 데이터베이스 대신 임시로
 const products = [{
     id: 1,
     name: '첫 번째 작품',
@@ -30,6 +45,24 @@ const products = [{
 
 const root = {
     getProduct : ({id}) => products.find( product => product.id === parseInt(id)),
+    addProduct : ({input}) => { 
+        input.id = parseInt(products.length +1 );
+        products.push(input);
+        return root.getProduct({ id : input.id })
+    },
+    updateProduct : ({ id, input }) => {
+        const index = products.findIndex( product => product.id === parseInt(id));
+        products[index] = {
+            id : parseInt(id),
+            ...input
+        }
+        return products[index];
+    },
+    deleteProduct : ( { id } ) => {
+        const index = products.findIndex( product => product.id === parseInt(id));
+        products.splice( index, 1 );
+        return "remove success";
+    }
 };
 
 const app = express();
@@ -38,6 +71,8 @@ app.use('/graphql', graphqlHTTP({
     rootValue: root,
     graphiql: true,
 }));
+
+app.use('/static', express.static('static'));
 
 app.listen(4000, () => {
    console.log('Running a GraphQL API server at localhost:4000/graphql');
